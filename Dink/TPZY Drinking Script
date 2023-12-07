@@ -1,0 +1,498 @@
+/* Drink Script
+*  Requires drink_camFx in the same object to perform rlv-based effects.
+*  Animation names in the script have to exactly match the names in the contents.
+*/
+
+// Below, put in the total number of "sips" in this one drink.
+integer tott = 15; 
+    
+// Below, put in the total amount of "drunk" that this one drink can get you out of 100
+// For example, an amount of 25 means that 4 full drinks get you blackout drunk
+// because 25+25+25+25 = 100.
+float totBamt = 48;
+
+// If there's a cap or cork on the drink that needs to disappear when 
+// the drink is clicked or sipped, put the link number below.
+// Make it -1 if there's no bottle cap/cork.
+integer link_num_of_bottlecap = 0; 
+integer face_of_bottlecap = 1;
+
+// This animation plays when the drink is attached, and should loop.
+string hold = "M-Vaso-Hold"; 
+
+// This animation plays when a sip is taken.
+string sip = "M-Vaso-Drink"; // Exact names required
+
+// Asset ID of the pic for this drink. 
+// Right click a pic in your inventory and choose "copy Asset UUID."
+key portrait = "f08e8dc7-4365-d8a3-1750-6c7b7dd7cd41"; 
+
+// The list below says what animation to play on which sip number.
+// The first sip is 1, and it counts up to the number you set above 
+// for tott. Each line should say a sip number followed by a comma 
+// and then the exact name of the animation between "quotes".
+// There should be a comma at the END of every line except the last one.
+// If you don't want to start an animation after a particular sip, you can 
+// put nothing between the double quotes like this:
+// 8, "",
+// ^ That will not play any new animation on the 8th sip. It will also 
+// allow any previous animation to keep playing.
+list sipsToAnimation = [
+    1, "[18] M-Chill-Dance",
+    2, "[18] M-Chill-Dance",
+    3, "M-Club-Dance-4"
+    
+];
+integer baStride = 2; // Don't change this.
+
+// This animation starts playing 30 seconds after each sip of the drink.
+// It fills in all the gaps where other dances and drunk animations end.
+
+string defaultDance = "M-Vaso-Hold";
+
+// This animation is played by the HUD when this drink detaches.
+// It needs to be one of the animations that the HUD knows.
+// These are the animations the HUD could play:
+// "drunk stand 5", "final drunk with fall", "drunk stand3", "F-Drunk-Dance (+Drink)", 
+// "final drunk with fall", "TPZYDrunk Idle"
+    
+string overrideAnimation = "M-Drunk-Dance-1 (+Patron)";
+
+// Sips taken, line of text
+// Pretty simple, put the text you want to say between "" after a number.
+// Put a comma at the end of each line except the last one.
+// If you want the spoken text to include double quotes, you have to do something special 
+// because double-quotes in code usually mark the beginning and end of the text.
+// put a backslash \ in front of any double-quotes that are supposed to be spoken.
+// Example: 6, "/me laughs. \"Hello stranger!\" "
+// ^ Causes the chat to say: Your_Name laughs. "Hello Stranger!" 
+list sipsToMessages = [
+    1, "/me admires the pattern on his shot glass playing with it in the light \"I love this in the right lighting it kinda looks like the ghost things are moving\"",
+    2, "/me boppin his head to the music feeling himself get loose looking around the room \"I love how the ladies use Halloween as an excuse to wear lingerie in public\"",
+    3, "/me is getting TPZY now.. \"Another round!!!\""
+];
+
+// The list below allows you to override default animations like 
+// Standing, Sitting, and Walking.
+// These are often hard to see if another animation is playing at the same time, 
+// and sometimes AO HUDS on avatars will cause these to not play properly but they are 
+// kinda neat. The HUD also adds some override effects as you get increasingly drunk so 
+// you might not need these, but they're here if you need them.
+// The format is like this:
+// # of sips drank, "Name of AO state", "Name of animation"
+// Example: 6, "Sitting", "drunk_sway",
+// ^ Tries to override the avatar's sit animation with something called "drunk_sway" if it exists.
+// There must be a comma at the end of each line except the last.
+// If you don't need overrides, delete the lines in between the list sipsToOverrides = [ and the ];
+list sipsToOverrides = [
+    10, "Standing", "ao_drunk_stand_3",
+    10, "Walking", "TPzyDRNKWLK"
+];
+integer orStride = 3; // Don't change this.
+
+// The HUD already performs stronger and stronger blurring with increased dunkness.
+// The HUD already makes the avatar black-out when drunkness reaches 100% from any 
+// combination of TPZY drinks. 
+// The list below allows the drink to cause even more effects for certain sips.
+// Below, you type the sip # followed by a comma, then the name of the effect between double-quotes.
+// Put a comma at the end of each line except the last one.
+// Names of effects you can use:
+// lagOn (Makes the camera move slowly when the avatar walks)
+// randomFrameOn (Makes the camera jump to random points of view. Not a great effect.)
+// staggerOn (Makes the camera sway an a half-circle behind the avatar.)
+// spinOn (Makes the camera slowly circle around the avatar).
+// jumbleOn (IF rlv is enabled, any words longer than 3 letters get all mixed up.)
+// jumbleOff (IF rlv is enabled, scrambled text effect is turned off)
+// camOff (Turns off spinning/swaying camera)
+// All of these effects automatically turn off when the drink detaches to prevent 
+// accidentally being locked into rlv stuff.
+list sipsToEffects = [
+    5, "staggerOn",
+    3, "spinOn",
+    3, "jumbleOn"
+];
+integer fxStride = 2; // Don't change this.
+
+// THAT'S IT! BELOW THIS IS ALL THE CODE TO USE THE DATA ABOVE.
+
+
+// Used by the script
+string currentAnimation;
+integer warnedOnce;
+integer canRLV;
+integer muteSay;
+key owner;
+integer t;
+integer used = -1;
+float bamt;
+integer stopped;
+integer handle;
+
+// For the HUD
+integer comChannel = -1;
+integer Pchannel(string salt){
+    string setint = (string)((integer)("0x"+llGetSubString((string)llGetOwner(),-8,-1)) * 
+    llStringLength(salt) * llCeil(llLog(llStringLength(salt))));
+    return (integer)llGetSubString(setint, 0, 7);
+}
+////////////////
+
+RLVUnlock()
+{
+    if(canRLV)
+    {
+        llOwnerSay( "@detach=y" );
+    }
+}
+
+RLVLock()
+{
+    if(canRLV)
+    {
+    // Decided not to lock this on, so the drinks can be passed around.
+    //llOwnerSay( "@detach=n" );
+    }
+}
+
+integer isValidFloat(string s) { return (float)(s + "1") != 0.0; }
+
+integer uIsInteger(string input)
+{
+    input = llStringTrim(input,STRING_TRIM); // remove leading/trailing whitespace
+    if (llGetSubString(input,0,0) == "+") input = llGetSubString(input,1,-1);
+    return ((string)((integer)input) == input);
+}
+
+sip_drink()
+{
+    if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION) llStartAnimation(sip);
+}
+
+stop_animations()
+{
+    integer p = llGetPermissions();
+    if(p&PERMISSION_TRIGGER_ANIMATION)
+    {
+        integer i=0;
+        while(i<llGetListLength(sipsToAnimation))
+        {
+            string a = llList2String(sipsToAnimation, i+1);
+            if(llGetInventoryType(a)!=INVENTORY_NONE)
+            {
+                llStopAnimation(a);
+            }
+            i+=baStride;
+        }
+    }
+    if(p&PERMISSION_OVERRIDE_ANIMATIONS)
+    {
+        llResetAnimationOverride("ALL");
+    }
+}
+
+update_animation()
+{
+    integer i = 0;
+    //llOwnerSay("Start Update");
+    while(i<llGetListLength(sipsToAnimation)-baStride)
+    {
+        float trySip = llList2Float(sipsToAnimation, i);
+        float nextSip = llList2Float(sipsToAnimation, i+baStride);
+        string tryAnim = llList2String(sipsToAnimation, i+1);
+        
+        if( t >= trySip && t < nextSip )
+        {
+            //llOwnerSay("update_animation\nt "+(string)t+"\ntrySip"+(string)trySip+"\nnextSip"+(string)nextSip);
+            if(i>0)
+            {
+                string prevAnimation = llList2String(sipsToAnimation, i-baStride+1);
+                if(llGetInventoryType(prevAnimation)!=INVENTORY_NONE){
+                    if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION) llStopAnimation(prevAnimation);
+                }
+            }
+            //llOwnerSay("tryAnim "+(string)tryAnim);
+            if(llGetInventoryType(tryAnim)!=INVENTORY_NONE)
+            {
+            
+                if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION) llStartAnimation(tryAnim);
+                currentAnimation = tryAnim;
+                //llOwnerSay("Set timer 30");
+                llSetTimerEvent(30.0);
+            }
+        }
+        i+=baStride;
+    }
+    if(llGetPermissions()&PERMISSION_OVERRIDE_ANIMATIONS)
+    {
+        i=0;
+        while(i<llGetListLength(sipsToOverrides)-orStride)
+        {
+            integer sip = llList2Integer(sipsToOverrides, i);
+            if(t==sip)
+            {
+                string s = llList2String(sipsToOverrides, i+1);
+                string anim = llList2String(sipsToOverrides, i+2);
+                if(llGetInventoryType(anim)!=INVENTORY_NONE)
+                {
+                    llSetAnimationOverride(s, anim);
+                }
+            }
+            i+=orStride;
+        }
+    }
+    
+    i=0;
+    while(i<llGetListLength(sipsToEffects))
+    {
+        integer sip = llList2Integer(sipsToEffects, i);
+        if(t==sip)
+        {
+            string command = llList2String(sipsToEffects, i+1);
+            if(command=="jumbleOn")
+            {
+                if(canRLV) llOwnerSay("@redirchat:"+(string)(comChannel+1)+"=add");
+            }
+            else if(command=="jumbleOff")
+            {
+                if(canRLV) llOwnerSay("@redirchat:"+(string)(comChannel+1)+"=rem");
+            }
+            else{
+                llMessageLinked(LINK_THIS, 33, command, "");
+            }
+        }
+        i+=fxStride;
+    }
+    
+}
+
+update_text()
+{
+    if(muteSay) return;
+    integer i = llListFindList(sipsToMessages, [t]);
+    if(~i)
+    {
+        string m = llList2String(sipsToMessages, i+1);
+        llSay(0, m);
+    }
+}
+
+
+soft_reset()
+{
+    // Re-cap the bottle
+    if(link_num_of_bottlecap>=0) llSetLinkAlpha(link_num_of_bottlecap,1,face_of_bottlecap);
+    
+    llSetMemoryLimit(llGetUsedMemory()+1024);
+    owner = llGetOwner();
+    comChannel = Pchannel("TPZY_Drink"); // For HUD
+    //llOwnerSay("soft reset clear timer");
+    llSetTimerEvent(0.0); 
+    llListenRemove(handle);
+    handle = llListen( comChannel, "", "", "");  
+   // llWhisper(comChannel,"bottle_reset");
+    
+    if(llGetAttached() > 0)
+    {
+        if(used < 1)
+        {            
+            llOwnerSay("@versionnew="+(string)comChannel); // Request rlv
+            llRequestPermissions(owner,(PERMISSION_TRIGGER_ANIMATION|PERMISSION_OVERRIDE_ANIMATIONS));
+            initiate_to_hud();
+            //llOwnerSay("soft reset attached timer 1");
+            llSetTimerEvent(1.0);
+        }else{
+            // Just Hold if drink is drunk
+            if(llGetAttached() > 0){
+                llRequestPermissions(owner,(PERMISSION_TRIGGER_ANIMATION|PERMISSION_OVERRIDE_ANIMATIONS));
+            }
+        }
+    }else{ llOwnerSay("Attach to consume!"); }
+}
+
+
+initiate_to_hud()
+{
+    llWhisper(comChannel, "portrait"+(string)portrait);
+   // llWhisper(comChannel,"sip_total" + (string)tott); 
+    string tM = "total";
+    if(used!=1)
+    {
+        tM+=(string)(tott-t);
+    }else{
+        tM+="-1";
+    }
+    llWhisper(comChannel, tM);
+}
+
+default
+{
+    state_entry()
+    {
+        soft_reset();
+    }
+
+    on_rez(integer start_param)
+    {
+       soft_reset();
+    }
+
+    run_time_permissions(integer perm)
+    {
+        if (perm & PERMISSION_TRIGGER_ANIMATION)
+        {
+            if(llGetInventoryType(hold)!=INVENTORY_NONE){
+                llStartAnimation(hold);
+            }
+        }
+        
+        if (perm & PERMISSION_ATTACH)
+        {
+            llDetachFromAvatar();
+        }
+    }
+    
+    touch_start(integer n)
+    {
+        if(link_num_of_bottlecap>=0) llSetLinkAlpha(link_num_of_bottlecap,0,face_of_bottlecap);
+    }
+
+    changed(integer mask)
+    {
+        if(mask & CHANGED_OWNER)
+        {
+            soft_reset();
+        }
+    }
+
+    attach(key attachedAgent)
+    {
+        if (attachedAgent != NULL_KEY)
+        {
+            if(used==1)
+            {
+            }
+            llSay(comChannel, "OverAnim,"+overrideAnimation);
+            soft_reset();
+        }else if(llGetAttached() == 0){
+            if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION)
+            {
+                if(llGetInventoryType(currentAnimation)!=INVENTORY_NONE){
+                    llStopAnimation(currentAnimation);
+                }
+                llStopAnimation(sip);
+                llStopAnimation(hold);
+            }
+            llSay(comChannel, "DrinkAnim,"+overrideAnimation);
+            //llMessageLinked(LINK_THIS,0,"stop","");
+            llWhisper(comChannel, "detach");
+            if(canRLV) llOwnerSay("@clear");
+            warnedOnce = 0;
+        }
+    }
+
+    timer()
+    {
+        //llOwnerSay("timer fired");
+        if(used==-1)
+        {    // If Drink is on with no HUD, remind once, repeatedly ping for HUD.
+            if(!warnedOnce)
+            {
+                llOwnerSay("Be sure to equip the HUD to drink!");
+                warnedOnce = 1;
+            }
+            initiate_to_hud();
+            //llOwnerSay("timer event repeat hud ping 1");
+            llSetTimerEvent(1.0);
+        }else{
+            if( llGetPermissions()&PERMISSION_TRIGGER_ANIMATION )
+            {
+                if( llGetInventoryType(currentAnimation)!=INVENTORY_NONE )
+                {
+                    llStopAnimation(currentAnimation);
+                }
+                if(llGetInventoryType(defaultDance)!=INVENTORY_NONE )
+                {
+                    llStartAnimation(defaultDance);
+                }
+            }
+            //llSay(comChannel, "DrinkAnim,"+overrideAnimation);
+            llSetTimerEvent(0.0);
+        }
+    }
+    
+    listen( integer channel, string name, key id, string mess )
+    {
+        //llOwnerSay("bottle" + (string)channel + ": " + mess);
+        //llOwnerSay("heard "+mess);
+        if(llGetAttached() > 0)
+        {
+            if(mess=="SipButton")
+            {
+                if(link_num_of_bottlecap>=0) llSetLinkAlpha(link_num_of_bottlecap,0,face_of_bottlecap);
+                if(t<tott)
+                {
+                    ++t;
+                    llSay(comChannel, "bamtIncrease"+(string)( totBamt/(float)tott ) );
+                    llWhisper(comChannel, "total"+(string)(tott-t));
+                    sip_drink();
+                    
+        
+                    
+                    if(t>=tott)
+                    {
+                        used = 1;
+                        RLVUnlock();
+                    }
+                }else{
+                    llOwnerSay("My drink is empty!");
+                    RLVUnlock();
+                   
+                    llDetachFromAvatar();
+                }
+            }
+         else if(mess=="Get_Sip_Total")
+         {   
+         llWhisper(comChannel,"sip_total" + (string)tott); 
+        }else if(mess=="StopButton"){
+                stopped = !stopped;
+                llMessageLinked(LINK_THIS,0,"stop","");
+                if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION){
+                    stop_animations();
+                }
+                if(canRLV) llOwnerSay("@clear");
+                //llOwnerSay("Stop button clear timer");
+                llSetTimerEvent(0.0);
+            }else if(mess=="MuteButton"){
+                muteSay = !muteSay;
+            }else if(mess=="activate" && used<1){
+                if(used<0) used = 0;
+                //llOwnerSay("Activate and clear timer");
+                llSetLinkPrimitiveParamsFast( LINK_THIS, [PRIM_NAME, llGetDisplayName(llGetOwner())] );
+                llSetTimerEvent(0.0);
+            }else if(mess == "hudPing"){
+                initiate_to_hud();
+            }else 
+            if(mess == "detach"){
+                if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION && 
+                llGetInventoryType(currentAnimation)!=INVENTORY_NONE){
+                    llStopAnimation(currentAnimation);
+                }
+            }else 
+            if(~llSubStringIndex(mess, "setBamt")){
+                string amt = llStringTrim(llGetSubString( mess, llSubStringIndex(mess, "setBamt")+7, llStringLength(mess)), STRING_TRIM);
+                if(isValidFloat(amt))
+                {
+                    bamt = (float)amt;
+                    update_animation();
+                    update_text();
+                }
+            }else 
+            if(~llSubStringIndex(mess, "RestrainedLove")){
+                //llOwnerSay("Listen heard rlv");
+                canRLV = 1;
+                //RLVLock();
+            }
+        }
+        
+    }
+}
