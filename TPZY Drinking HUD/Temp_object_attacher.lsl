@@ -71,6 +71,15 @@ default{
         }
     } // End Listen
     
+    attach(key attachedAgent)
+    {
+        if (attachedAgent != NULL_KEY)
+        {
+           
+            llResetScript();
+        }
+    }
+    
     run_time_permissions( integer perm )
     {
         if(PERMISSION_ATTACH & perm)
@@ -86,27 +95,11 @@ default{
     {
         destroy();
     }
-    
-      changed(integer mask)
-    {
-        if(mask & CHANGED_OWNER)
-        {
-            llResetScript();
-        }
-    }
 }
 
 state Ready{
     state_entry()
     {
         llAttachToAvatarTemp( attach_point );
-    }
-    
-      changed(integer mask)
-    {
-        if(mask & CHANGED_OWNER)
-        {
-            llResetScript();
-        }
     }
 }
