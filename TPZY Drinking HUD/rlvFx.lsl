@@ -322,10 +322,19 @@ llGetSubString((string)owner,-8,-1)) - 483))/200;
         
     }
     
-      changed(integer mask)
+    changed(integer change)
     {
-        if(mask & CHANGED_OWNER)
+     
+     if(change & CHANGED_OWNER)
+     llResetScript();   
+        
+    }
+    
+     attach(key attachedAgent)
+    {
+        if (attachedAgent != NULL_KEY)
         {
+            llOwnerSay("@clear");
             llResetScript();
         }
     }
