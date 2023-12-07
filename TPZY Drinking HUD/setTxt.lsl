@@ -59,10 +59,21 @@ set_digits(string amount, list faces)
 
 default
 {
+    
+    
     state_entry()
     {
         list faces = [2,1];
         set_digits("00", faces);
+    }
+    
+    attach(key attachedAgent)
+    {
+        if (attachedAgent != NULL_KEY)
+        {
+           
+            llResetScript();
+        }
     }
     
     link_message( integer sender_num, integer num, string str, key id )
@@ -73,13 +84,5 @@ default
             set_digits(str, llParseString2List((string)id, [","], []) );
         }
         
-    }
-    
-      changed(integer mask)
-    {
-        if(mask & CHANGED_OWNER)
-        {
-            llResetScript();
-        }
     }
 }
