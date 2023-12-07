@@ -185,6 +185,8 @@ default{
             llOwnerSay("@versionnew="+(string)comChannel); // Request rlv
             llSetTimerEvent(1.0);
             
+            
+            
             //llOwnerSay("Operating on Channel "+(string)comChannel);
         }
         else
@@ -387,13 +389,5 @@ else if(~llSubStringIndex(mess, "sip_total"))
           
      }  
         
-    }
-    
-      changed(integer mask)
-    {
-        if(mask & CHANGED_OWNER)
-        {
-            llResetScript();
-        }
     }
 }
