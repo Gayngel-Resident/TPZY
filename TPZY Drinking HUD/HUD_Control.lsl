@@ -107,7 +107,7 @@ update_rlvFx()
                 (string)llList2Float(bamtToCamFx, i+4) + "," +
                 (string)llList2Float(bamtToCamFx, i+5);
             string camFx = llList2String(bamtToCamFx, i+6);
-           // llOwnerSay("bamt is "+(string)bamt+" cam is "+camFx+".");
+            //llOwnerSay("bamt is "+(string)bamt+" cam is "+camFx+".");
             if(canRLV) 
             {
                 llMessageLinked(LINK_THIS,32, rlvFx, "");
@@ -170,7 +170,6 @@ integer isValidFloat(string s) { return (float)(s + "1") != 0.0; }
 default{
     state_entry()
     {
-        // llMessageLinked(LINK_THIS,0,"reset","");
         llSetLinkPrimitiveParamsFast(blackoutLink, [PRIM_SIZE, <0.01, 0.1, 0.1>]);
         llSetLinkAlpha( blackoutLink, 0.0, ALL_SIDES );
         comChannel = Pchannel("TPZY_Drink");
@@ -184,8 +183,6 @@ default{
             llListen( comChannel+1, "", llGetOwner(), "");
             llOwnerSay("@versionnew="+(string)comChannel); // Request rlv
             llSetTimerEvent(1.0);
-            
-            
             
             //llOwnerSay("Operating on Channel "+(string)comChannel);
         }
@@ -208,7 +205,6 @@ default{
         {
             llMessageLinked(LINK_THIS, -1, (string)bamt, "");
             if(canRLV) llMessageLinked(LINK_THIS, -2, "stop", "");
-            llSay(comChannel,"detach_objects");
             llSetLinkPrimitiveParamsFast(blackoutLink, [PRIM_SIZE, <0.01000, 0.1, 0.1>]);
             llSetLinkAlpha( blackoutLink, 0.0, ALL_SIDES );
             if(llGetPermissions()&PERMISSION_TRIGGER_ANIMATION)
@@ -235,29 +231,9 @@ default{
     
     listen( integer channel, string name, key id, string mess )
     {
-      
-      
-       
-
-
- if(mess == "bottle_reset")
- {
-     
-    // llMessageLinked(LINK_THIS,0,"reset",""); 
- }
-    
-
-
-else if(~llSubStringIndex(mess, "sip_total"))
-                {
-                 string sip_tot =  llStringTrim(llGetSubString( mess, llSubStringIndex(mess, "sip_total")+9, llStringLength(mess)), STRING_TRIM); 
-               llMessageLinked(LINK_THIS,(integer)sip_tot,"sip_total","");   
-                
-            }
-        
+        //llOwnerSay("HUD hears "+mess);
         if(channel==comChannel+1)
         {
-          //  llOwnerSay("scrambling");
             llSay(0, scrambleWordsIn(mess));
         }else{
             if(~llSubStringIndex(mess, "detach"))
@@ -284,15 +260,11 @@ else if(~llSubStringIndex(mess, "sip_total"))
                 if(mess == "hudPing")
                 {    // If I'm attached and hear someone attaching...
                     llSay(comChannel, "duplicateHud");
-                   
                 }
                 if(mess == "duplicateHud")
                 {    // If I've attached and hear that I'm a duplicate...
                     llRequestPermissions( llGetOwner(), PERMISSION_ATTACH );
                 }
-                
-                
-                
                 if(~llSubStringIndex(mess, "RestrainedLove")){
                     canRLV = 1;
                     //llOwnerSay("HUD got RLV");
@@ -311,7 +283,6 @@ else if(~llSubStringIndex(mess, "sip_total"))
                 {
                     string tot = llStringTrim(llGetSubString( mess, llSubStringIndex(mess, "total")+5, llStringLength(mess)), STRING_TRIM);
                     llMessageLinked( LINK_THIS, -5555, tot, (key)textFaces );
-                    llMessageLinked(LINK_THIS,(integer)tot,"sip_number","");
                 }else if(~llSubStringIndex(mess, "bamtIncrease"))
                 {
                     string inc = llStringTrim(llGetSubString( mess, llSubStringIndex(mess, "bamtIncrease")+12, llStringLength(mess)), STRING_TRIM);
@@ -330,8 +301,6 @@ else if(~llSubStringIndex(mess, "sip_total"))
                         overrideAnimation = ani;
                     }
                 }
-                
-                
                 else if(~llSubStringIndex(mess, "DrinkAnim,")){
                     string ani = llStringTrim(llGetSubString( mess, llSubStringIndex(mess, "DrinkAnim,")+10, llStringLength(mess)), STRING_TRIM);
                     if(llGetInventoryType(ani)!=INVENTORY_NONE)
@@ -381,13 +350,4 @@ else if(~llSubStringIndex(mess, "sip_total"))
         }
     }
     
-    link_message(integer sender, integer num, string msg, key id)
-    {
-      if(msg == "Get_Sip_Total")
-      {
-         llSay(comChannel,"Get_Sip_Total");  
-          
-     }  
-        
-    }
 }
