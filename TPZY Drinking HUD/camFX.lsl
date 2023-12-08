@@ -140,7 +140,8 @@ default
         if(c==4)
         {
             fade+=0.1;
-            if(fade>=1.0){ fade=1.0; c=0; llSetTimerEvent(0.0); }
+            if(fade>=1.0){ fade=1.0; c=0; llSetTimerEvent(0.0); 
+            llMessageLinked(LINK_SET,0,"send_home","");}
             llSetLinkAlpha( blackoutLink, fade, ALL_SIDES );
         }
         if(c==5)
