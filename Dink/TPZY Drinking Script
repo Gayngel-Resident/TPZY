@@ -453,6 +453,8 @@ default
          else if(mess=="Get_Sip_Total")
          {   
          llWhisper(comChannel,"sip_total" + (string)tott); 
+        } else if(mess=="Get_Drink_Total"){
+             llWhisper(comChannel, "drink_total"+(string)(tott));
         }else if(mess=="StopButton"){
                 stopped = !stopped;
                 llMessageLinked(LINK_THIS,0,"stop","");
