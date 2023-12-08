@@ -50,6 +50,33 @@ integer Pchannel(string salt){
     return (integer)llGetSubString(setint, 0, 7);
 }
 
+Populate(integer n)
+{
+    
+ object_list = subfolders;
+         ttot = n;
+         
+       
+         
+         integer i;
+         integer tot = llGetListLength(object_list);
+         
+         for(i = 1; i < tot; i = i + 2)
+         {
+           
+           integer s = llList2Integer(object_list,i);
+          // llOwnerSay("s is " + (string)s);
+           s =  llRound(((float)s/100.0)*(float)ttot); 
+         //   llOwnerSay("rounded s is " + (string)s); 
+           
+           
+           s = ttot-s;
+           
+           object_list = llListReplaceList(object_list,[s],i,i);
+        }   
+    
+}
+
 default{
    on_rez(integer start_param)
    {
@@ -59,7 +86,8 @@ default{
     } 
     
     state_entry(){
-       // llOwnerSay("@clear"); 
+       // llOwnerSay("clearing");
+        llOwnerSay("@clear"); 
        llMessageLinked(LINK_THIS,0,"Get_Sip_Total","");
         owner = llGetOwner();
        inv_chan = ((integer)llFabs((integer)("0x"+
@@ -80,6 +108,7 @@ llGetSubString((string)owner,-8,-1)) - 483))/200;
         {
             llSetTimerEvent(0.0);
             llOwnerSay("@setdebug_renderresolutiondivisor:"+"1.0"+"=force");
+// llOwnerSay(" if(num==-2 && str == stop) clearing");
              llOwnerSay("@clear");
         }else if(num==32)
         {
@@ -91,6 +120,7 @@ llGetSubString((string)owner,-8,-1)) - 483))/200;
             delay = llList2Float(m,2);
             repeatTimes = llList2Float(m,3);
             wobbleTime = max(llList2Float(m,4), 0.01);
+           // llOwnerSay("if(num==32) changing to min blur");
             blur = minBlur;
             increase = (maxBlur-minBlur)/(wobbleTime/increment);
             //if(repeatTimes == 0.0) repeatTimes = 0.5;
@@ -117,38 +147,52 @@ llGetSubString((string)owner,-8,-1)) - 483))/200;
         
         else if(str == "sip_total")
         {
-        object_list = subfolders;
-         ttot = num;
-         
         
-         
-         integer i;
-         integer tot = llGetListLength(object_list);
-         
-         for(i = 1; i < tot; i = i + 2)
-         {
-           
-           integer s = llList2Integer(object_list,i);
-          // llOwnerSay("s is " + (string)s);
-           s =  llRound(((float)s/100.0)*(float)ttot); 
-         //   llOwnerSay("rounded s is " + (string)s); 
-           
-           
-           s = ttot-s;
-           
-           object_list = llListReplaceList(object_list,[s],i,i);
-
-        //  llOwnerSay("subfolders: " + llList2CSV(subfolders));
-             
-         }   
+            Populate(num);   
             
-            
+          //llOwnerSay("object_list: " + llList2CSV(object_list));   
         }
         
         else if(str == "sip_number")
         {
            // llOwnerSay("sip_number: " + (string)num);
+           //  llOwnerSay("object_list: " + llList2CSV(object_list));  
+            
+            if(object_list == [])
+            {
+             llMessageLinked(LINK_SET,0,"Get_Drink_Total","");   
+             
+              
+                
+            } 
+            
+            else
+            {
+              
             integer idx = llListFindList(object_list,[num]);
+            
+           if(idx != -1)
+           { 
+            
+           llListenRemove(inv_handle);
+           item = llList2String(object_list,idx-1);
+          // llOwnerSay("checking inventory for " + item);
+           inv_chan = (integer)llFabs(Pchannel(item));
+             inv_handle = llListen(inv_chan,"",owner,"");
+            llOwnerSay("@getinv:~"+main_folder+"="+(string)inv_chan);
+            
+          }
+          
+         }
+            
+        }
+        
+        else if(str == "drink_total")
+        {
+             Populate(num);
+             llSleep(1.0); 
+             
+               integer idx = llListFindList(object_list,[num]);
             
            if(idx != -1)
            { 
@@ -228,7 +272,7 @@ llGetSubString((string)owner,-8,-1)) - 483))/200;
         
          if(chan == inv_chan)   
      {
-       // llOwnerSay("inv_chan:*" + msg); 
+      // llOwnerSay("inv_chan:*" + msg); 
        
        list tmp = llParseString2List(msg,[","],[]);
        
@@ -304,12 +348,17 @@ llGetSubString((string)owner,-8,-1)) - 483))/200;
                     llSetTimerEvent(increment);
                 }
             }else{
+                  // llOwnerSay("timer changing to min blur"); 
                 if(blur>minBlur)
                 {
+                  // llOwnerSay("blur decreasing"); 
                     blur-= increase;
-                    if(blur<minBlur) blur = minBlur;
+                    if(blur<minBlur){ blur = minBlur;  
+                     // llOwnerSay("else blur = minblur"); 
+}
                     llSetTimerEvent(increment);
                 }else{
+                    // ("else blur = minblur"); 
                     blur = minBlur;
                     direction = 1;
                     repeatTimes-=0.5;
